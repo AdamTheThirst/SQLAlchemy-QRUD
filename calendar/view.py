@@ -16,6 +16,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 )
 logger = logging.getLogger(__name__)
 
+
 def user_registration(user_id: str, user_name: str) -> str:
     '''
     Добавляет нового пользователя в базу.
@@ -28,7 +29,8 @@ def user_registration(user_id: str, user_name: str) -> str:
                         или если пользователь с таким user_id уже существует.
     '''
 
-    if not user_id or not instances(user_id, str) or not user_name or not instances(user_name, str):
+    if not user_id or not isinstance(user_id, str) or not user_name or not isinstance(user_name, str):
+        logger.error('ERROR: User user_id and user_name can\'t be empty')
         raise ValueError('user_id и user_name не должны быть пустыми строками')
 
     user = UserORM(user_id=user_id, username=user_name)
@@ -36,9 +38,11 @@ def user_registration(user_id: str, user_name: str) -> str:
         session.add(user)
         try:
             session.commit()
-            return f'Commited'
+            logger.info(f'User {user_id} - {user_name} successfully registered')
+            return 'Пользователь успешно зарегистрирован'
         except IntegrityError:
             session.rollback()
+            logger.error(f'ERROR: User {user_id} - {user_name} already exists')
             raise ValueError(f'Пользователь с ID {user_id} уже существует')
 
 
@@ -49,6 +53,7 @@ def get_user_mood_liist() -> list:
     '''
     def get_all_moods() -> list:
         return [mood.value for mood in MoodsEnum]
+
 
 def get_user_personal_moods(user_id: str) -> dict:
     '''
@@ -109,6 +114,7 @@ def insert_user_mood(user_id: str, mood: str, why: Optional[str] = None) -> None
         except IntegrityError as e:
             session.rollback()
             raise Exception(f'Ошибка при записи в базу данных: {e}')  # Четкое сообщение об ошибке
+
 
 def avg_user_mood_set_by_sheduler() -> str:
     '''
@@ -265,7 +271,7 @@ def get_statistic_user_mood(user_id: str, period=None) -> dict:
     '''
     1. Получить все записи на пользователя user_id из AverageMoodORM за указанный период.
        ВАЖНО: период может быть одним конкретным днём, конкретным месяцем, конкретным годом, всем периодом существования пользователя в случае None
-    2. ЕСЛИ период ограничем конкретным днём, то берём все данные weight из на user_id из MoodORM
+    2. ЕСЛИ период ограничен конкретным днём, то берём все данные weight из на user_id из MoodORM
     3. ИНОЕ — берём все данные weight из на user_id из AverageMoodORM за указанный период
     4. Возвращаем dict по принципу:
        ЕСЛИ период ограничем конкретным днём, то {'hh:mm': weight}
