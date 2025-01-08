@@ -355,7 +355,7 @@ def get_statistic_user_mood(user_id: str,
     if period.start_date == period.end_date:
         # Здесь вам нужно будет выполнить запрос из MoodORM, возвращая словарь {date_time: weight}
         start_date = datetime.combine(period.start_date, time.min)
-        end_date = datetime.combine(period.start_date, time.max)
+        end_date = datetime.combine(period.end_date, time.max)
 
         with sync_session_fabric() as session:
             try:
@@ -371,7 +371,7 @@ def get_statistic_user_mood(user_id: str,
                 weight_dict = dict()
                 for date in query:
                     weight_dict[date.date] = date.weight
-                return weight_dict
+                return ('day', weight_dict)
 
             except Exception as e:
                 raise Exception(f'ERROR: {e}')
@@ -385,7 +385,7 @@ def get_statistic_user_mood(user_id: str,
         days_in_current_month = get_days_in_month(year=period.start_date.year, month=period.start_date.month)
 
         start_date = datetime.combine(period.start_date.replace(day=1), time.min)
-        end_date = datetime.combine(period.start_date.replace(day=days_in_current_month), time.max)
+        end_date = datetime.combine(period.end_date.replace(day=days_in_current_month), time.max)
 
         with sync_session_fabric() as session:
             try:
@@ -402,7 +402,7 @@ def get_statistic_user_mood(user_id: str,
                 for date in query:
                     weight_dict[date.date] = date.weight
 
-                return weight_dict
+                return ('month', weight_dict)
 
             except Exception as e:
                 raise Exception(f'ERROR: {e}')
@@ -412,10 +412,41 @@ def get_statistic_user_mood(user_id: str,
     elif period.start_date.year == period.end_date.year:
         # Здесь должен быть запрос к AverageMoodORM, усреднение weight для каждого существующего месяца
         # Вернуть словарь {month: avg_weight_of_this_month}
-        days_in_current_month = get_days_in_month(year=period.start_date.year, month=period.start_date.month)
 
         start_date = datetime.combine(period.start_date.replace(month=1, day=1), time.min)
-        end_date = datetime.combine(period.start_date.replace(month=12, day=days_in_current_month), time.max)
+        end_date = datetime.combine(period.end_date.replace(month=12, day=31), time.max)
+
+        with sync_session_fabric() as session:
+            try:
+                query = session.query(
+                    func.extract('month', AverageMoodORM.date).label('month'),
+                    func.avg(AverageMoodORM.avg_mood_weight).label('avg_mood_weight')
+                ).filter(
+                    AverageMoodORM.user_id == user_id,
+                    AverageMoodORM.date >= start_date,
+                    AverageMoodORM.date <= end_date
+                ).group_by(func.extract('month', AverageMoodORM.date)).all()
+
+                if not query:
+                    return None
+
+                weight_dict = dict()
+                for date in query:
+                    weight_dict[int(date.month)] = date.avg_mood_weight
+
+                return ('year', weight_dict)
+
+            except Exception as e:
+                raise Exception(f'ERROR: {e}')
+
+
+    # Берем выборку данных за разные годы
+    else:
+        # Здесь должен быть запрос к AverageMoodORM, усреднение weight для каждого существующего года
+        # Вернуть словарь {year: avg_weight_of_this_year}
+
+        start_date = datetime.combine(period.start_date.replace(month=1, day=1), time.min)
+        end_date = datetime.combine(period.end_date.replace(month=12, day=31), time.max)
 
         with sync_session_fabric() as session:
             try:
@@ -432,18 +463,10 @@ def get_statistic_user_mood(user_id: str,
                 for date in query:
                     weight_dict[date.date] = date.weight
 
-                return weight_dict
+                return ('year', weight_dict)
 
             except Exception as e:
                 raise Exception(f'ERROR: {e}')
-
-
-    # Берем выборку данных за разные годы
-    else:
-        # Здесь должен быть запрос к AverageMoodORM, усреднение weight для каждого существующего года
-        # Вернуть словарь {year: avg_weight_of_this_year}
-        pass    # Берем выборку данных за один день
-
 
 
 
