@@ -285,10 +285,45 @@ def get_statistic_user_mood(user_id: str, period=None) -> dict:
     '''
     pass
 
-def get_detail_day_statistic_user_mood(user_id: str, period=None) -> str:
+def get_detail_day_statistic_user_mood(user_id: str, target_date: date = None) -> dict | None:
     '''
     1. Получить все записи на пользователя user_id из AverageMoodORM за указанный день, формат гггг.мм.дд. Если None - данные за вчера.
     2. Берём все данные weight, mood и why на user_id из MoodORM
     :return: dict {mood: (time hh:mm, weight, why)} или None
     '''
-    pass
+
+    # Если дата не указана, получаем данные за вчера
+    if target_date is None:
+        target_date = date.today() - timedelta(days=1)
+
+    start_of_day = datetime.combine(target_date, datetime.min.time())  # Начало дня
+    end_of_day = datetime.combine(target_date, datetime.max.time())  # Конец дня
+
+    with sync_session_fabric() as session:
+        # Запрашиваем все записи для пользователя за указанный день
+        query = session.query(MoodORM).filter(
+            MoodORM.user_id == user_id,
+            MoodORM.date >= start_of_day,
+            MoodORM.date <= end_of_day,
+        ).all()
+
+    # Если не найдено записей, возвращаем None
+    if not query:
+        logging.info(f'WARNING: No records for user {user_id} on date {target_date}.')
+        return None
+
+    # Создаем словарь для статистики
+    mood_statistics = {}
+    num_of_records = len(query)
+
+    for mood_record in query:
+        # Форматирование времени и заполнение словаря
+        formatted_time = mood_record.date.strftime('%H:%M')
+        mood_statistics[mood_record.mood] = (formatted_time, mood_record.weight, mood_record.why)
+        logging.info(f'For {user_id=}: {formatted_time}, Mood: {mood_record.mood}, Weight: {mood_record.weight}, Why: {mood_record.why}')
+
+    logging.info(f'For {user_id=} extracted {num_of_records} records on date {target_date}.')
+
+    return mood_statistics
+
+
