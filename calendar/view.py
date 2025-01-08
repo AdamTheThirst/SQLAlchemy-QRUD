@@ -170,11 +170,13 @@ def avg_user_mood_set_by_sheduler() -> str:
 
                 except Exception as e:
                     logger.error(f'ERROR for user_id {user_id} : {str(e)}')
+                    return (f'ERROR during the batch operation : {str(e)}')
 
             session.commit()
 
         except Exception as e:
             logger.error(f'ERROR during the batch operation : {str(e)}')
+            return (f'ERROR during the batch operation : {str(e)}')
 
         finally:
             total_time_end = datetime.now()
@@ -182,12 +184,12 @@ def avg_user_mood_set_by_sheduler() -> str:
                 f'Total time for commit : {total_time_end - total_time_start} : added {total_records_counter} records'
             )
 
-    return "Logging completed successfully."  # Возвращаем подтверждение
+    return "Success"  # Возвращаем подтверждение
 
 
 def avg_user_mood_set_worker() -> str:
     '''
-    1. Запустить функцию вручную / возможно, по расписанию раз в месяц, в определённое число (ещё не решил)
+    1. Запустить функцию вручную
     2. Получить все записи weight у всех user_id за все периоды существования данного user_id, с разбиением по дням
     3. Для каждого user_id посчитать среднеарифметический weight за каждый прошедший день отдельно, в случае отсутствия записей вернуть None
     4. Делает запись в AverageMoodORM для каждого user_id отдельнор для каждого прошедшего дня с усреднённым за этот день weight и указанием даты дня формата гггг.мм.дд
@@ -202,7 +204,62 @@ def avg_user_mood_set_worker() -> str:
                     )
                     logger = logging.getLogger(__name__)
     '''
-    pass
+
+    total_time_start = datetime.now()
+    total_records_inserted = 0
+
+    with sync_session_fabric() as session:
+        try:
+            # Получаем список всех уникальных user_id
+            user_ids = session.query(UserORM.user_id).all()
+            total_users = len(user_ids)
+            logger.info(f'Found {total_users} unique users for mood processing.')
+
+            if total_users == 0:
+                logger.info('No users found for mood processing.')
+                return "No users found."
+
+            for (user_id,) in user_ids:
+                try:
+                    # Получаем все уникальные даты, на которые есть записи настроения данного пользователя
+                    distinct_dates = session.query(func.date(MoodORM.date)).filter(MoodORM.user_id == user_id).distinct().all()
+
+                    for (mood_date,) in distinct_dates:
+                        # Рассчитываем среднее значение weight для каждого дня
+                        average_weight = session.query(func.avg(cast(MoodORM.weight, Integer))).filter(
+                            MoodORM.user_id == user_id,
+                            func.date(MoodORM.date) == mood_date,
+                        ).scalar()
+
+                        avg_mood_entry = AverageMoodORM(
+                            user_id=user_id,
+                            avg_mood_weight=average_weight,  # может быть None, если не найдено
+                            date=mood_date,
+                        )
+
+                        # Добавляем запись в очередь
+                        session.add(avg_mood_entry)
+                        total_records_inserted += 1
+
+                        # Логи
+                        logger.info(f"Inserted average mood for user_id {user_id} on date {mood_date}: {average_weight}")
+
+                except Exception as e:
+                    logger.error(f"Error processing mood data for user_id {user_id} on date {mood_date}: {str(e)}")
+                    continue  # продолжить выполнение для следующего пользователя
+
+        except Exception as e:
+            logger.error(f"Error processing user records: {str(e)}")
+            return f'ERROR during the batch operation: {str(e)}'
+
+        finally:
+            session.commit()
+            total_time_end = datetime.now()
+            logger.info(f'Total records inserted: {total_records_inserted}.')
+            logger.info(f'Total time taken: {total_time_end - total_time_start} seconds.')
+
+    return "Success"
+
 
 def get_statistic_user_mood(user_id: str, period=None) -> dict:
     '''
