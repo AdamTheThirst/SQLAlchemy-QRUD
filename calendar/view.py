@@ -1,3 +1,5 @@
+from calendar import month
+
 from sqlalchemy import select, func, cast
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import session
@@ -348,6 +350,51 @@ def get_statistic_user_mood(user_id: str,
                       end_period_year = end_period_year,
                       end_period_month = end_period_month,
                       end_period_day = end_period_day)
+
+    # Берем выборку данных за один день
+    if period.start_date == period.end_date:
+        # Здесь вам нужно будет выполнить запрос из MoodORM, возвращая словарь {date_time: weight}
+        pass
+
+    # Берем выборку данных за месяц
+    elif period.start_date.month == period.end_date.month and period.start_date.year == period.end_date.year:
+        # Здесь должен быть запрос к AverageMoodORM, усреднение weight для каждого существующего дня
+        # Вернуть словарь {day_of_month: avg_weight_of_this_day}
+        pass
+
+    # Берем выборку данных за год
+    elif period.start_date.year == period.end_date.year:
+        # Здесь должен быть запрос к AverageMoodORM, усреднение weight для каждого существующего месяца
+        # Вернуть словарь {month: avg_weight_of_this_month}
+        pass
+
+    # Берем выборку данных за разные годы
+    else:
+        # Здесь должен быть запрос к AverageMoodORM, усреднение weight для каждого существующего года
+        # Вернуть словарь {year: avg_weight_of_this_year}
+        pass    # Берем выборку данных за один день
+    if period.start_date == period.end_date:
+        # Здесь вам нужно будет выполнить запрос из MoodORM, возвращая словарь {date_time: weight}
+        pass
+
+    # Берем выборку данных за месяц
+    elif period.start_date.month == period.end_date.month and period.start_date.year == period.end_date.year:
+        # Здесь должен быть запрос к AverageMoodORM, усреднение weight для каждого существующего дня
+        # Вернуть словарь {day_of_month: avg_weight_of_this_day}
+        pass
+
+    # Берем выборку данных за год
+    elif period.start_date.year == period.end_date.year:
+        # Здесь должен быть запрос к AverageMoodORM, усреднение weight для каждого существующего месяца
+        # Вернуть словарь {month: avg_weight_of_this_month}
+        pass
+
+    # Берем выборку данных за разные годы
+    else:
+        # Здесь должен быть запрос к AverageMoodORM, усреднение weight для каждого существующего года
+        # Вернуть словарь {year: avg_weight_of_this_year}
+        pass
+
 
 def get_detail_day_statistic_user_mood(user_id: str, target_date: date = None) -> dict | None:
     '''
