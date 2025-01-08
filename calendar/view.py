@@ -5,6 +5,7 @@ from sqlalchemy.orm.loading import instances
 
 from datetime import datetime, timedelta
 import logging
+from collections import namedtuple
 
 from database import sync_engine, sync_session_fabric
 from model import *
@@ -270,8 +271,87 @@ def avg_user_mood_set_worker() -> str:
 
     return "Success"
 
+def get_days_in_month(year, month) -> int:
+    if month in (1, 3, 5, 7, 8, 10, 12):
+        return 31
+    elif month in (4, 6, 9, 11):
+        return 30
+    elif month == 2:
+        if (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0):
+            return 29
+        return 28
+    raise ValueError(f'Invalid month: {month}')
 
-def get_statistic_user_mood(user_id: str, period=None) -> dict:
+def check_input_dates(start_period_year,
+                      start_period_month,
+                      start_period_day,
+                      end_period_year,
+                      end_period_month,
+                      end_period_day) -> tuple|str:
+    # Поддерживаемая дата по умолчанию
+    if (start_period_day is None and
+            start_period_month is None and
+            start_period_year is None and
+            end_period_day is None and
+            end_period_month is None and
+            end_period_year is None):
+        start_period_day = datetime.now().day - 1  # фиксируем на вчера
+        end_period_day = start_period_day  # фиксируем на вчера
+
+    # Инициализация значений по умолчанию
+    if start_period_day is None:
+        start_period_day = datetime.now().day - 1
+    if start_period_month is None:
+        start_period_month = datetime.now().month
+    if start_period_year is None:
+        start_period_year = datetime.now().year
+
+    # Проверки типов
+    for var, name in [(start_period_day, 'start_period_day'),
+                      (start_period_month, 'start_period_month'),
+                      (start_period_year, 'start_period_year'),
+                      (end_period_day, 'end_period_day'),
+                      (end_period_month, 'end_period_month'),
+                      (end_period_year, 'end_period_year')]:
+        if var is not None and not isinstance(var, int):
+            raise ValueError(f'{name} must be an integer')
+
+    # Параметры конца
+    if end_period_day is None:
+        end_period_day = datetime.now().day - 1
+    if end_period_month is None:
+        end_period_month = datetime.now().month
+    if end_period_year is None:
+        end_period_year = datetime.now().year
+
+    # Учтем количество дней в месяцах
+    start_days_in_month = get_days_in_month(start_period_year, start_period_month)
+    end_days_in_month = get_days_in_month(end_period_year, end_period_month)
+
+    # Проверки на корректность дней в месяцах
+    if (start_period_day < 1 or start_period_day > start_days_in_month or
+            end_period_day < 1 or end_period_day > end_days_in_month):
+        raise ValueError('Days must be within the valid range for their respective months.')
+
+    # Проверка, чтобы start_day не превышал end_day, если это в одном месяце/году
+    if (start_period_year == end_period_year and
+            start_period_month == end_period_month and
+            start_period_day > end_period_day):
+        raise ValueError('Start day must be less than or equal to end day in the same month.')
+
+    # Используем именованный кортеж для возврата значений
+    DatesTuple = namedtuple('DatesTuple', ['start_date', 'end_date'])
+    return DatesTuple(start_date=date(start_period_year, start_period_month, start_period_day),
+                      end_date=date(end_period_year, end_period_month, end_period_day))
+
+def get_statistic_user_mood(user_id: str,
+                            start_period_year: int = None,
+                            start_period_month: int = None,
+                            start_period_day: int = None,
+                            end_period_year: int = None,
+                            end_period_month: int = None,
+                            end_period_day: int = None
+                            ) -> dict:
     '''
     1. Получить все записи на пользователя user_id из AverageMoodORM за указанный период.
        ВАЖНО: период может быть одним конкретным днём, конкретным месяцем, конкретным годом, всем периодом существования пользователя в случае None
@@ -281,9 +361,15 @@ def get_statistic_user_mood(user_id: str, period=None) -> dict:
        ЕСЛИ период ограничем конкретным днём, то {'hh:mm': weight}
        ЕСЛИ период ограничен месяцем, то {'day_number_in_the_month': weight}
        ЕСЛИ период ограничен годом, то {'month': average_weight_for_this_month}
-    :return: dict or None
+    :return: dict or None. Если данные указаны за месяц, можно сформировать календарь.
     '''
-    pass
+
+    period = check_input_dates(start_period_year = start_period_year,
+                      start_period_month = start_period_month,
+                      start_period_day = start_period_day,
+                      end_period_year = end_period_year,
+                      end_period_month = end_period_month,
+                      end_period_day = end_period_day)
 
 def get_detail_day_statistic_user_mood(user_id: str, target_date: date = None) -> dict | None:
     '''
