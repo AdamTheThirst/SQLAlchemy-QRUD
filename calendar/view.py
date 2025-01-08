@@ -382,19 +382,10 @@ def get_statistic_user_mood(user_id: str,
     elif period.start_date.month == period.end_date.month and period.start_date.year == period.end_date.year:
         # Здесь должен быть запрос к AverageMoodORM, где уже содержится усреднение weight для каждого существующего дня
         # Вернуть словарь {day_of_month: avg_weight_of_this_day}
-        if period.start_date.month in (1, 3, 5, 7, 8, 10, 12):
-            current_month = 31
-        elif period.start_date.month in (4, 6, 9, 11):
-            current_month = 30
-        elif period.start_date.month == 2:
-            if (period.start_date.year % 4 == 0 and period.start_date.year % 100 != 0) or (period.start_date.year % 400 == 0):
-                current_month = 29
-            else:
-                current_month = 28
-
+        days_in_current_month = get_days_in_month(year=period.start_date.year, month=period.start_date.month)
 
         start_date = datetime.combine(period.start_date.replace(day=1), time.min)
-        end_date = datetime.combine(period.start_date.replace(day=current_month), time.max)
+        end_date = datetime.combine(period.start_date.replace(day=days_in_current_month), time.max)
 
         with sync_session_fabric() as session:
             try:
@@ -421,7 +412,31 @@ def get_statistic_user_mood(user_id: str,
     elif period.start_date.year == period.end_date.year:
         # Здесь должен быть запрос к AverageMoodORM, усреднение weight для каждого существующего месяца
         # Вернуть словарь {month: avg_weight_of_this_month}
-        pass
+        days_in_current_month = get_days_in_month(year=period.start_date.year, month=period.start_date.month)
+
+        start_date = datetime.combine(period.start_date.replace(month=1, day=1), time.min)
+        end_date = datetime.combine(period.start_date.replace(month=12, day=days_in_current_month), time.max)
+
+        with sync_session_fabric() as session:
+            try:
+                query = session.query(AverageMoodORM).filter(
+                    AverageMoodORM.user_id == user_id,
+                    AverageMoodORM.date >= start_date,
+                    AverageMoodORM.date <= end_date
+                ).all()
+
+                if not query:
+                    return None
+
+                weight_dict = dict()
+                for date in query:
+                    weight_dict[date.date] = date.weight
+
+                return weight_dict
+
+            except Exception as e:
+                raise Exception(f'ERROR: {e}')
+
 
     # Берем выборку данных за разные годы
     else:
