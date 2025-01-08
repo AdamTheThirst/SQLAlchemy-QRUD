@@ -288,61 +288,39 @@ def check_input_dates(start_period_year,
                       end_period_year,
                       end_period_month,
                       end_period_day) -> tuple|str:
-    # Поддерживаемая дата по умолчанию
-    if (start_period_day is None and
-            start_period_month is None and
-            start_period_year is None and
-            end_period_day is None and
-            end_period_month is None and
-            end_period_year is None):
-        start_period_day = datetime.now().day - 1  # фиксируем на вчера
-        end_period_day = start_period_day  # фиксируем на вчера
-
-    # Инициализация значений по умолчанию
-    if start_period_day is None:
-        start_period_day = datetime.now().day - 1
-    if start_period_month is None:
-        start_period_month = datetime.now().month
-    if start_period_year is None:
-        start_period_year = datetime.now().year
-
-    # Проверки типов
-    for var, name in [(start_period_day, 'start_period_day'),
-                      (start_period_month, 'start_period_month'),
-                      (start_period_year, 'start_period_year'),
-                      (end_period_day, 'end_period_day'),
-                      (end_period_month, 'end_period_month'),
-                      (end_period_year, 'end_period_year')]:
-        if var is not None and not isinstance(var, int):
+    # Проверка типа входных данных
+    for value, name in [
+        (start_period_year, 'start_period_year'),
+        (start_period_month, 'start_period_month'),
+        (start_period_day, 'start_period_day'),
+        (end_period_year, 'end_period_year'),
+        (end_period_month, 'end_period_month'),
+        (end_period_day, 'end_period_day')
+    ]:
+        if not isinstance(value, int):
             raise ValueError(f'{name} must be an integer')
 
-    # Параметры конца
-    if end_period_day is None:
-        end_period_day = datetime.now().day - 1
-    if end_period_month is None:
-        end_period_month = datetime.now().month
-    if end_period_year is None:
-        end_period_year = datetime.now().year
-
-    # Учтем количество дней в месяцах
+    # Получение количества дней в месяцах
     start_days_in_month = get_days_in_month(start_period_year, start_period_month)
     end_days_in_month = get_days_in_month(end_period_year, end_period_month)
 
-    # Проверки на корректность дней в месяцах
-    if (start_period_day < 1 or start_period_day > start_days_in_month or
-            end_period_day < 1 or end_period_day > end_days_in_month):
-        raise ValueError('Days must be within the valid range for their respective months.')
+    # Проверка на корректность дней
+    if start_period_day < 1 or start_period_day > start_days_in_month:
+        raise ValueError('Start day must be within the valid range for start_period_month.')
 
-    # Проверка, чтобы start_day не превышал end_day, если это в одном месяце/году
-    if (start_period_year == end_period_year and
-            start_period_month == end_period_month and
-            start_period_day > end_period_day):
-        raise ValueError('Start day must be less than or equal to end day in the same month.')
+    if end_period_day < 1 or end_period_day > end_days_in_month:
+        raise ValueError('End day must be within the valid range for end_period_month.')
 
-    # Используем именованный кортеж для возврата значений
+    # Проверка на соответствие даты начала и конца
+    start_date = date(start_period_year, start_period_month, start_period_day)
+    end_date = date(end_period_year, end_period_month, end_period_day)
+
+    if start_date > end_date:
+        raise ValueError('Start date must be less than or equal to end date.')
+
+    # Возвращаем именованный кортеж с начальной и конечной датами
     DatesTuple = namedtuple('DatesTuple', ['start_date', 'end_date'])
-    return DatesTuple(start_date=date(start_period_year, start_period_month, start_period_day),
-                      end_date=date(end_period_year, end_period_month, end_period_day))
+    return DatesTuple(start_date=start_date, end_date=end_date)
 
 def get_statistic_user_mood(user_id: str,
                             start_period_year: int = None,
