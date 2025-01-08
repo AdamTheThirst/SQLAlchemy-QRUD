@@ -203,6 +203,7 @@ def avg_user_mood_set_worker() -> str:
                     )
                     logger = logging.getLogger(__name__)
     '''
+    pass
 
 def get_statistic_user_mood(user_id: str, period=None) -> dict:
     '''
@@ -217,6 +218,7 @@ def get_statistic_user_mood(user_id: str, period=None) -> dict:
        ЕСЛИ период ограничен годом, то {'month': average_weight_for_this_month}
     :return: dict or None
     '''
+    pass
 
 def get_detail_day_statistic_user_mood(user_id: str, period=None) -> str:
     '''
@@ -225,3 +227,4 @@ def get_detail_day_statistic_user_mood(user_id: str, period=None) -> str:
     2. Берём все данные weight, mood и why на user_id из MoodORM
     :return: dict {mood: (time hh:mm, weight, why)} или None
     '''
+    pass
