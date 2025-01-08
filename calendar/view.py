@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import session
 from sqlalchemy.orm.loading import instances
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 import logging
 from collections import namedtuple
 
@@ -354,7 +354,29 @@ def get_statistic_user_mood(user_id: str,
     # Берем выборку данных за один день
     if period.start_date == period.end_date:
         # Здесь вам нужно будет выполнить запрос из MoodORM, возвращая словарь {date_time: weight}
-        pass
+        start_date = datetime.combine(period.start_date, time.min)
+        end_date = datetime.combine(period.start_date, time.max)
+
+        with sync_session_fabric() as session:
+            try:
+                query = session.query(MoodORM).filter(
+                    MoodORM.user_id == user_id,
+                    MoodORM.date >= start_date,
+                    MoodORM.date <= end_date
+                ).all()
+
+                if not query:
+                    return None
+
+                weight_dict = dict()
+                for date in query:
+                    weight_dict[date.date] = date.weight
+                return weight_dict
+
+            except Exception as e:
+                raise Exception(f'ERROR: {e}')
+
+
 
     # Берем выборку данных за месяц
     elif period.start_date.month == period.end_date.month and period.start_date.year == period.end_date.year:
