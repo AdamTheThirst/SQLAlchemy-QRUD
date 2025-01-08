@@ -187,7 +187,6 @@ def avg_user_mood_set_by_sheduler() -> str:
 
 def avg_user_mood_set_worker() -> str:
     '''
-    TODO:
     1. Запустить функцию вручную / возможно, по расписанию раз в месяц, в определённое число (ещё не решил)
     2. Получить все записи weight у всех user_id за все периоды существования данного user_id, с разбиением по дням
     3. Для каждого user_id посчитать среднеарифметический weight за каждый прошедший день отдельно, в случае отсутствия записей вернуть None
@@ -207,7 +206,6 @@ def avg_user_mood_set_worker() -> str:
 
 def get_statistic_user_mood(user_id: str, period=None) -> dict:
     '''
-    TODO
     1. Получить все записи на пользователя user_id из AverageMoodORM за указанный период.
        ВАЖНО: период может быть одним конкретным днём, конкретным месяцем, конкретным годом, всем периодом существования пользователя в случае None
     2. ЕСЛИ период ограничем конкретным днём, то берём все данные weight из на user_id из MoodORM
@@ -222,7 +220,6 @@ def get_statistic_user_mood(user_id: str, period=None) -> dict:
 
 def get_detail_day_statistic_user_mood(user_id: str, period=None) -> str:
     '''
-    TODO
     1. Получить все записи на пользователя user_id из AverageMoodORM за указанный день, формат гггг.мм.дд. Если None - данные за вчера.
     2. Берём все данные weight, mood и why на user_id из MoodORM
     :return: dict {mood: (time hh:mm, weight, why)} или None
