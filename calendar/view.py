@@ -51,8 +51,7 @@ def get_user_mood_liist() -> list:
     Получаем список всех настроений пользователя и возвращаем его запросу
     :return: list of moods from MoodsEnum
     '''
-    def get_all_moods() -> list:
-        return [mood.value for mood in MoodsEnum]
+    return [mood.value for mood in MoodsEnum]
 
 
 def get_user_personal_moods(user_id: str) -> dict:
@@ -70,7 +69,7 @@ def get_user_personal_moods(user_id: str) -> dict:
     return mood_dict
 
 
-def insert_user_mood(user_id: str, mood: str, why: Optional[str] = None) -> None:
+def insert_user_mood(user_id: str, mood: str, why: Optional[str] = None) -> str:
     '''
     Устанавливает настроение юзера на текущий момент
     :param user_id: id пользователя (не уникальный, но связан с таблицей user_id)
@@ -81,38 +80,43 @@ def insert_user_mood(user_id: str, mood: str, why: Optional[str] = None) -> None
 
     if not user_id or not isinstance(user_id, str) \
             or not mood or not isinstance(mood, str):
+        logger.error('ERROR: User user_id and mood can\'t be empty')
         raise ValueError('user_id и mood не должны быть пустыми строками')
 
-    #Получаем weight из personal_mood (если есть :) )
     with sync_session_fabric() as session:
+        # Получаем weight из PersonalMoodORM (если есть)
         personal_mood_weight = (
-            sync_session_fabric.query(PersonalMoodORM)
-            .filter(PersonalMoodORM.user_id == user_id, PersonalMoodORM.mood_weight == mood)
+            session.query(PersonalMoodORM)
+            .filter(PersonalMoodORM.user_id == user_id, PersonalMoodORM.user_mood == mood)
             .first()
         )
 
-    if personal_mood_weight:
-        weight = personal_mood_weight.mood_weight
-    else:
-        # Получаем вес из WeightEnun
-        try:
-            weight = WeightEnun[mood].value
-        except KeyError:
-            raise ValueError(f'Недопустимое значение настроения: {mood}')
+        if personal_mood_weight:
+            weight = personal_mood_weight.mood_weight
+            logger.info(f'Using existing personal mood weight for user {user_id}: {weight}')
+        else:
+            # Получаем вес из WeightEnun
+            try:
+                weight = WeightEnun[mood].value
+                logger.info(f'Using WeightEnun for mood {mood}: {weight}')
+            except KeyError:
+                logger.error(f'ERROR: incorrect mood value: {mood}')
+                raise ValueError(f'Недопустимое значение настроения: {mood}')
 
-    user_id_mood = MoodORM(
-        user_id=user_id,
-        mood=MoodsEnum[mood],  # Убедитесь, что mood передается как значение из MoodsEnum
-        why=why,
-        weight=weight,
-    )
+        user_id_mood = MoodORM(
+            user_id=user_id,
+            mood=mood,
+            why=why,
+            weight=weight,
+        )
 
-    with sync_session_fabric() as session:
         session.add(user_id_mood)
         try:
             session.commit()
+            logger.info(f'User mood inserted successfully: user_id={user_id}, mood={mood}, weight={weight}')
         except IntegrityError as e:
             session.rollback()
+            logger.error(f'ERROR: commit error {e}')
             raise Exception(f'Ошибка при записи в базу данных: {e}')  # Четкое сообщение об ошибке
 
 
